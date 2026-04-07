@@ -1,8 +1,8 @@
 class Cld < Formula
   desc "Interactive TUI to browse and resume Claude Code conversations"
   homepage "https://github.com/Leo6Leo/cld"
-  url "https://github.com/Leo6Leo/cld/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "f897cd5ff8d33af7f4be127dcdb55d38dc23363ff3c403f78f3f5fdbb59ef5c7"
+  url "https://github.com/Leo6Leo/cld/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "9fc4b5e8eecb3a6ac7a444be320e73dc99f494cc201a7fe795ccebff3916efbb"
   license "MIT"
 
   depends_on "python@3"
