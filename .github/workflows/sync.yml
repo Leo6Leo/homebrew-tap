@@ -1,0 +1,66 @@
+name: Sync apps
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - sync
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-apps
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tap
+        uses: actions/checkout@v4
+
+      - name: Sync mapped Casks
+        id: sync
+        run: |
+          set -euo pipefail
+
+          changed=false
+          while IFS= read -r encoded; do
+            mapping="$(base64 --decode <<<"$encoded")"
+            source_url="$(jq -r .key <<<"$mapping")"
+            destination="$(jq -r .value <<<"$mapping")"
+
+            if [[ "$destination" != Casks/*.rb || "$destination" == *..* ]]; then
+              echo "error: unsafe Cask destination '$destination'" >&2
+              exit 1
+            fi
+
+            mkdir -p "$(dirname "$destination")"
+            temporary="$(mktemp)"
+            curl --fail --location --silent --show-error --retry 3 \
+              -H 'Cache-Control: no-cache' \
+              "${source_url}?run=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --output "$temporary"
+            ruby -c "$temporary"
+
+            if [[ ! -f "$destination" ]] || ! cmp -s "$temporary" "$destination"; then
+              mv "$temporary" "$destination"
+              changed=true
+            else
+              rm "$temporary"
+            fi
+          done < <(jq -r 'to_entries[] | @base64' apps.json)
+
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Commit synced Casks
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks
+          git commit -m "chore: sync Homebrew Casks"
+          git push
